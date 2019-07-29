@@ -12,11 +12,12 @@ pub async fn handshake_and_wrap<ARW>(
     mut stream: ARW,
     host: &str,
     port: u16,
+    read_buf: &mut [u8],
 ) -> Result<PrependIoStream<ARW>>
 where
     ARW: AsyncRead + AsyncWrite + Unpin,
 {
-    let data_after_handshake = http::handshake(&mut stream, host, port).await?;
+    let data_after_handshake = http::handshake(&mut stream, host, port, read_buf).await?;
     Ok(PrependIoStream::new(
         stream,
         Some(data_after_handshake.into()),

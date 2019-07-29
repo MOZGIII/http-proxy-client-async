@@ -20,7 +20,9 @@ fn handshake_test() -> std::io::Result<()> {
 
         let socket = MergeIO::new(reader, writer);
 
-        let mut tunnel_socket = handshake_and_wrap(socket, "127.0.0.1", 8080).await?;
+        let mut read_buf = [0u8; 1024];
+        let mut tunnel_socket =
+            handshake_and_wrap(socket, "127.0.0.1", 8080, &mut read_buf).await?;
 
         // Read all data from the socket.
         let mut data_at_tunnel = vec![];
