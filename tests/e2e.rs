@@ -10,6 +10,7 @@ fn handshake_test() -> std::io::Result<()> {
     executor::block_on(async {
         let expected_req = "CONNECT 127.0.0.1:8080 HTTP/1.1\r\n\
                             Host: 127.0.0.1:8080\r\n\
+                            proxy-authorization: Basic aGVsbG86d29ybGQ=\r\n\
                             \r\n";
         let sample_res = "HTTP/1.1 200 OK\r\n\
                           \r\n\
@@ -20,9 +21,15 @@ fn handshake_test() -> std::io::Result<()> {
 
         let socket = MergeIO::new(reader, writer);
 
+        let mut request_headers = HeaderMap::new();
+        request_headers.insert(
+            "Proxy-Authorization",
+            HeaderValue::from_static("Basic aGVsbG86d29ybGQ="),
+        );
+
         let mut read_buf = [0u8; 1024];
         let mut tunnel_socket =
-            handshake_and_wrap(socket, "127.0.0.1", 8080, &mut read_buf).await?;
+            handshake_and_wrap(socket, "127.0.0.1", 8080, &request_headers, &mut read_buf).await?;
 
         // Read all data from the socket.
         let mut data_at_tunnel = vec![];

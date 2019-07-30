@@ -1,31 +1,38 @@
 use futures::prelude::*;
 use std::io::{Error, ErrorKind, Result};
 
+use crate::http::HeaderMap;
+
+mod request;
+
 pub async fn handshake<ARW>(
     stream: &mut ARW,
     host: &str,
     port: u16,
+    request_headers: &HeaderMap,
     read_buf: &mut [u8],
 ) -> Result<Vec<u8>>
 where
     ARW: AsyncRead + AsyncWrite + Unpin,
 {
-    send_request(stream, host, port).await?;
+    send_request(stream, host, port, request_headers).await?;
     receive_response(stream, read_buf).await
 }
 
-pub async fn send_request<AW>(stream: &mut AW, host: &str, port: u16) -> Result<()>
+pub async fn send_request<AW>(
+    stream: &mut AW,
+    host: &str,
+    port: u16,
+    headers: &HeaderMap,
+) -> Result<()>
 where
     AW: AsyncWrite + Unpin,
 {
-    let write_buf = format!(
-        "CONNECT {0}:{1} HTTP/1.1\r\n\
-         Host: {0}:{1}\r\n\
-         \r\n",
-        host, port,
-    );
+    let mut buf: Vec<u8> = Vec::with_capacity(1024);
+    request::write(&mut buf, host, port, headers)?;
+
     use futures::AsyncWriteExt;
-    stream.write_all(write_buf.as_bytes()).await
+    stream.write_all(buf.as_slice()).await
 }
 
 pub async fn receive_response<'buf, AR>(stream: &mut AR, read_buf: &mut [u8]) -> Result<Vec<u8>>
@@ -84,17 +91,42 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::http::HeaderValue;
     use futures::executor;
     use std::io::Cursor;
 
     #[test]
-    fn send_request_test() -> Result<()> {
+    fn send_request_without_headers() -> Result<()> {
         executor::block_on(async {
             let sample_res = "CONNECT 127.0.0.1:8080 HTTP/1.1\r\n\
                               Host: 127.0.0.1:8080\r\n\
                               \r\n";
             let mut socket = Cursor::new(vec![0u8; 1024]);
-            send_request(&mut socket, "127.0.0.1", 8080).await?;
+            let headers = HeaderMap::new();
+            send_request(&mut socket, "127.0.0.1", 8080, &headers).await?;
+
+            assert_eq!(
+                &socket.get_ref()[..socket.position() as usize],
+                sample_res.as_bytes(),
+            );
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn send_request_with_headers() -> Result<()> {
+        executor::block_on(async {
+            let sample_res = "CONNECT 127.0.0.1:8080 HTTP/1.1\r\n\
+                              Host: 127.0.0.1:8080\r\n\
+                              proxy-authorization: Basic aGVsbG86d29ybGQ=\r\n\
+                              \r\n";
+            let mut socket = Cursor::new(vec![0u8; 1024]);
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "Proxy-Authorization",
+                HeaderValue::from_static("Basic aGVsbG86d29ybGQ="),
+            );
+            send_request(&mut socket, "127.0.0.1", 8080, &headers).await?;
 
             assert_eq!(
                 &socket.get_ref()[..socket.position() as usize],
