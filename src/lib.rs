@@ -10,6 +10,7 @@ use prepend_io_stream::PrependIoStream;
 use std::io::Result;
 
 pub use crate::http::*;
+pub use flow::{HandshakeOutcome, ResponseParts};
 
 pub async fn handshake_and_wrap<ARW>(
     mut stream: ARW,
@@ -17,14 +18,23 @@ pub async fn handshake_and_wrap<ARW>(
     port: u16,
     request_headers: &HeaderMap,
     read_buf: &mut [u8],
-) -> Result<PrependIoStream<ARW>>
+) -> Result<Outcome<PrependIoStream<ARW>>>
 where
     ARW: AsyncRead + AsyncWrite + Unpin,
 {
-    let data_after_handshake =
-        flow::handshake(&mut stream, host, port, request_headers, read_buf).await?;
-    Ok(PrependIoStream::new(
-        stream,
-        Some(data_after_handshake.into()),
-    ))
+    let HandshakeOutcome {
+        response_parts,
+        data_after_handshake,
+    } = flow::handshake(&mut stream, host, port, request_headers, read_buf).await?;
+
+    Ok(Outcome {
+        response_parts,
+        stream: PrependIoStream::new(stream, Some(data_after_handshake.into())),
+    })
+}
+
+#[derive(Debug)]
+pub struct Outcome<T> {
+    pub response_parts: ResponseParts,
+    pub stream: T,
 }

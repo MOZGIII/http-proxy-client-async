@@ -13,6 +13,7 @@ fn handshake_test() -> std::io::Result<()> {
                             proxy-authorization: Basic aGVsbG86d29ybGQ=\r\n\
                             \r\n";
         let sample_res = "HTTP/1.1 200 OK\r\n\
+                          X-Custom: Sample Value\r\n\
                           \r\n\
                           this is already the proxied content";
 
@@ -28,8 +29,20 @@ fn handshake_test() -> std::io::Result<()> {
         );
 
         let mut read_buf = [0u8; 1024];
-        let mut tunnel_socket =
-            handshake_and_wrap(socket, "127.0.0.1", 8080, &request_headers, &mut read_buf).await?;
+        let Outcome {
+            stream: mut tunnel_socket,
+            response_parts:
+                ResponseParts {
+                    status_code: code,
+                    headers: response_headers,
+                    ..
+                },
+        } = handshake_and_wrap(socket, "127.0.0.1", 8080, &request_headers, &mut read_buf).await?;
+
+        // Verify the response was good.
+        assert_eq!(code, 200);
+        assert_eq!(response_headers.len(), 1);
+        assert_eq!(response_headers.get("x-custom").unwrap(), &"Sample Value");
 
         // Read all data from the socket.
         let mut data_at_tunnel = vec![];

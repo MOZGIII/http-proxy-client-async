@@ -1,1 +1,1 @@
-pub use ::http::{HeaderMap, HeaderValue};
+pub use ::http::header::{HeaderMap, HeaderName, HeaderValue};

@@ -3,7 +3,10 @@ use std::io::{Error, ErrorKind, Result};
 
 use crate::http::HeaderMap;
 
+mod handshake_outcome;
 mod request;
+
+pub use handshake_outcome::{HandshakeOutcome, ResponseParts};
 
 pub async fn handshake<ARW>(
     stream: &mut ARW,
@@ -11,7 +14,7 @@ pub async fn handshake<ARW>(
     port: u16,
     request_headers: &HeaderMap,
     read_buf: &mut [u8],
-) -> Result<Vec<u8>>
+) -> Result<HandshakeOutcome>
 where
     ARW: AsyncRead + AsyncWrite + Unpin,
 {
@@ -35,7 +38,10 @@ where
     stream.write_all(buf.as_slice()).await
 }
 
-pub async fn receive_response<'buf, AR>(stream: &mut AR, read_buf: &mut [u8]) -> Result<Vec<u8>>
+pub async fn receive_response<'buf, AR>(
+    stream: &mut AR,
+    read_buf: &mut [u8],
+) -> Result<HandshakeOutcome>
 where
     AR: AsyncRead + Unpin,
 {
@@ -56,7 +62,9 @@ where
 
         match status {
             httparse::Status::Partial => buf,
-            httparse::Status::Complete(consumed) => return Ok(Vec::from(&buf[consumed..])),
+            httparse::Status::Complete(consumed) => {
+                return Ok(HandshakeOutcome::new(response, Vec::from(&buf[consumed..])))
+            }
         }
     };
 
@@ -82,7 +90,10 @@ where
         match status {
             httparse::Status::Partial => continue,
             httparse::Status::Complete(consumed) => {
-                return Ok(Vec::from(&carry_on_buf[consumed..]))
+                return Ok(HandshakeOutcome::new(
+                    response,
+                    Vec::from(&carry_on_buf[consumed..]),
+                ))
             }
         };
     }
@@ -144,10 +155,38 @@ mod tests {
                               this is already the proxied content";
             let mut socket = Cursor::new(sample_res);
             let mut read_buf = [0u8; 1024];
-            let data_after_handshake = receive_response(&mut socket, &mut read_buf).await?;
+            let outcome = receive_response(&mut socket, &mut read_buf).await?;
             assert_eq!(
-                data_after_handshake.as_slice(),
+                outcome.data_after_handshake.as_slice(),
                 "this is already the proxied content".as_bytes()
+            );
+            assert_eq!(outcome.response_parts.status_code, 200);
+            assert_eq!(outcome.response_parts.reason_phrase, "OK");
+            assert_eq!(outcome.response_parts.headers.len(), 0);
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn receive_response_with_headers() -> Result<()> {
+        executor::block_on(async {
+            let sample_res = "HTTP/1.1 200 OK\r\n\
+                              X-Custom: Sample Value\r\n\
+                              \r\n\
+                              this is already the proxied content";
+            let mut socket = Cursor::new(sample_res);
+            let mut read_buf = [0u8; 1024];
+            let outcome = receive_response(&mut socket, &mut read_buf).await?;
+            assert_eq!(
+                outcome.data_after_handshake.as_slice(),
+                "this is already the proxied content".as_bytes()
+            );
+            assert_eq!(outcome.response_parts.status_code, 200);
+            assert_eq!(outcome.response_parts.reason_phrase, "OK");
+            assert_eq!(outcome.response_parts.headers.len(), 1);
+            assert_eq!(
+                outcome.response_parts.headers.get("x-custom").unwrap(),
+                &"Sample Value"
             );
             Ok(())
         })
@@ -165,13 +204,19 @@ mod tests {
             // Use small read buffer size to force non-happy-path.
             const BUF_SIZE: usize = 4;
             let mut read_buf = [0u8; BUF_SIZE];
-            let data_after_handshake = receive_response(&mut socket, &mut read_buf).await?;
+            let outcome = receive_response(&mut socket, &mut read_buf).await?;
 
             // Prepare the estimates for the leftover data.
             let extra_read = (BUF_SIZE - (sample_handshake.len() % BUF_SIZE)) % BUF_SIZE;
             let expected_data = &sample_post_handshake_data[..extra_read];
 
-            assert_eq!(data_after_handshake.as_slice(), expected_data.as_bytes());
+            assert_eq!(
+                outcome.data_after_handshake.as_slice(),
+                expected_data.as_bytes()
+            );
+            assert_eq!(outcome.response_parts.status_code, 200);
+            assert_eq!(outcome.response_parts.reason_phrase, "OK");
+            assert_eq!(outcome.response_parts.headers.len(), 0);
             Ok(())
         })
     }
