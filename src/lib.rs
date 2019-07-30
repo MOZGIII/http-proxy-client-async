@@ -1,7 +1,7 @@
 #![warn(missing_debug_implementations, rust_2018_idioms)]
 #![feature(async_await)]
 
-pub mod http;
+pub mod flow;
 pub mod prepend_io_stream;
 
 use futures::prelude::*;
@@ -17,7 +17,7 @@ pub async fn handshake_and_wrap<ARW>(
 where
     ARW: AsyncRead + AsyncWrite + Unpin,
 {
-    let data_after_handshake = http::handshake(&mut stream, host, port, read_buf).await?;
+    let data_after_handshake = flow::handshake(&mut stream, host, port, read_buf).await?;
     Ok(PrependIoStream::new(
         stream,
         Some(data_after_handshake.into()),
