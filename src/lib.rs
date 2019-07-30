@@ -6,11 +6,11 @@ pub mod http;
 pub mod prepend_io_stream;
 
 use futures::prelude::*;
-use prepend_io_stream::PrependIoStream;
-use std::io::Result;
 
 pub use crate::http::*;
 pub use flow::{HandshakeOutcome, ResponseParts};
+pub use prepend_io_stream::PrependIoStream as Stream;
+pub use std::io::Result;
 
 pub async fn handshake_and_wrap<ARW>(
     mut stream: ARW,
@@ -18,7 +18,7 @@ pub async fn handshake_and_wrap<ARW>(
     port: u16,
     request_headers: &HeaderMap,
     read_buf: &mut [u8],
-) -> Result<Outcome<PrependIoStream<ARW>>>
+) -> Result<Outcome<Stream<ARW>>>
 where
     ARW: AsyncRead + AsyncWrite + Unpin,
 {
@@ -29,7 +29,7 @@ where
 
     Ok(Outcome {
         response_parts,
-        stream: PrependIoStream::new(stream, Some(data_after_handshake.into())),
+        stream: Stream::new(stream, Some(data_after_handshake.into())),
     })
 }
 
