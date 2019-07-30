@@ -56,6 +56,10 @@ where
     // We didn't exit early on error or completion, this means we're at slower
     // path and we need a carry-on buffer.
 
+    // TODO: allow user to customize the data structure used for a carry-on
+    // buffer. This is useful in case user wants to limit the amount of memory
+    // this buffer can grow to, or for the cases when a more optimized data
+    // structure is at hand.
     let mut carry_on_buf = Vec::from(first_buf);
     loop {
         let total = stream.read(read_buf).await?;
