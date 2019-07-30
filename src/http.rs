@@ -32,8 +32,6 @@ pub async fn receive_response<'buf, AR>(stream: &mut AR, read_buf: &mut [u8]) ->
 where
     AR: AsyncRead + Unpin,
 {
-    let mut response_headers = [httparse::EMPTY_HEADER; 16];
-
     // Happy path - we expect the response to be reasonably small and to come in
     // complete as a single buffer via a single read.
     // In this case we don't need to allocate and carry-on second buffer.
@@ -41,6 +39,8 @@ where
     let first_buf = {
         let total = stream.read(read_buf).await?;
         let buf = &read_buf[..total];
+
+        let mut response_headers = [httparse::EMPTY_HEADER; 16];
         let mut response = httparse::Response::new(&mut response_headers);
 
         let status = response
