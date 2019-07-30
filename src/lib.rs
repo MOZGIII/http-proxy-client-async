@@ -38,3 +38,9 @@ pub struct Outcome<T> {
     pub response_parts: ResponseParts,
     pub stream: T,
 }
+
+impl<T> AsRef<T> for Outcome<T> {
+    fn as_ref(&self) -> &T {
+        &self.stream
+    }
+}
