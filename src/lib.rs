@@ -1,4 +1,5 @@
 #![warn(missing_debug_implementations, rust_2018_idioms)]
+// TODO: remove this after stable gets to 1.39.
 #![feature(async_await)]
 
 pub mod flow;
