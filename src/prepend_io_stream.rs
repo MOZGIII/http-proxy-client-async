@@ -1,4 +1,4 @@
-use futures::io::{Initializer, IoSlice};
+use futures::io::IoSlice;
 use futures::prelude::*;
 use std::io::Result;
 use std::pin::Pin;
@@ -38,11 +38,6 @@ impl<T> AsyncRead for PrependIoStream<T>
 where
     T: AsyncRead + AsyncWrite + Unpin,
 {
-    #[inline]
-    unsafe fn initializer(&self) -> Initializer {
-        self.wrapped.initializer()
-    }
-
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
