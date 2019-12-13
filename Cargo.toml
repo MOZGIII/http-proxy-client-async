@@ -1,6 +1,6 @@
 [package]
 name = "http-proxy-client-async"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["MOZGIII <mike-n@narod.ru>"]
 edition = "2018"
 description = "Async I/O HTTP 1.1 CONNECT proxy client protocol implementation"
