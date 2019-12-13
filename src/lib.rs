@@ -1,12 +1,10 @@
 #![warn(missing_debug_implementations, rust_2018_idioms)]
-// TODO: remove this after stable gets to 1.39.
-#![feature(async_await)]
 
 pub mod flow;
 pub mod http;
 pub mod prepend_io_stream;
 
-use futures::prelude::*;
+use futures_io::{AsyncRead, AsyncWrite};
 
 pub use crate::http::*;
 pub use flow::{HandshakeOutcome, ResponseParts};
@@ -30,7 +28,7 @@ where
 
     Ok(Outcome {
         response_parts,
-        stream: Stream::new(stream, Some(data_after_handshake.into())),
+        stream: Stream::from_vec(stream, Some(data_after_handshake.into())),
     })
 }
 

@@ -1,4 +1,5 @@
-use futures::prelude::*;
+use futures_io::{AsyncRead, AsyncWrite};
+use futures_util::io::{AsyncReadExt, AsyncWriteExt};
 use std::io::{Error, ErrorKind, Result};
 
 use crate::http::HeaderMap;
@@ -33,8 +34,6 @@ where
 {
     let mut buf: Vec<u8> = Vec::with_capacity(1024);
     request::write(&mut buf, host, port, headers)?;
-
-    use futures::AsyncWriteExt;
     stream.write_all(buf.as_slice()).await
 }
 
@@ -103,8 +102,7 @@ where
 mod tests {
     use super::*;
     use crate::http::HeaderValue;
-    use futures::executor;
-    use std::io::Cursor;
+    use futures::{executor, io::Cursor};
 
     #[test]
     fn send_request_without_headers() -> Result<()> {

@@ -1,6 +1,6 @@
 #![warn(missing_debug_implementations, rust_2018_idioms)]
 
-use futures::{executor, AsyncReadExt};
+use futures::{executor, io::Cursor, AsyncReadExt};
 use http_proxy_client_async::*;
 use merge_io::MergeIO;
 
@@ -16,8 +16,8 @@ fn handshake_test() -> std::io::Result<()> {
                           \r\n\
                           this is already the proxied content";
 
-        let reader = std::io::Cursor::new(sample_res);
-        let writer = std::io::Cursor::new(vec![0u8; 1024]);
+        let reader = Cursor::new(sample_res);
+        let writer = Cursor::new(vec![0u8; 1024]);
 
         let socket = MergeIO::new(reader, writer);
 
@@ -54,15 +54,16 @@ fn handshake_test() -> std::io::Result<()> {
             "this is already the proxied content".as_bytes()
         );
 
-        // Deconstruct the tunnel into MergedIO socket and after-handshake-data
-        // buffer.
-        let (unwrapped_socket, data_after_handshake) = tunnel_socket.into_inner();
-
         // Ensure that at this point we don't have leftover data.
-        assert_eq!(
-            data_after_handshake, None,
+        let pending_prepend_data = tunnel_socket.pending_prepend_data();
+        assert!(
+            pending_prepend_data.is_empty(),
             "we should've read everything that's left after the handshake"
         );
+
+        // Deconstruct the tunnel into MergedIO socket and after-handshake-data
+        // buffer.
+        let (unwrapped_socket, _cursor_after_handshake) = tunnel_socket.into_inner();
 
         // Deconstruct the unwrapped socket into cursor pairs.
         let (reader, writer) = unwrapped_socket.into_inner();
