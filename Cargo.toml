@@ -3,6 +3,11 @@ name = "http-proxy-client-async"
 version = "0.3.0"
 authors = ["MOZGIII <mike-n@narod.ru>"]
 edition = "2018"
+description = "Async I/O HTTP 1.1 CONNECT proxy client protocol implementation"
+keywords = ["http", "http-connect", "async", "protocol", "proxy"]
+categories = ["network-programming"]
+license = "MIT"
+repository = "https://github.com/MOZGIII/http-proxy-client-async"
 
 [dependencies]
 http = "0.2"
